@@ -1,6 +1,7 @@
 package mcpapp
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -111,4 +112,13 @@ func ResourceJSON(uri string, value any) (*mcp.ReadResourceResult, error) {
 			Text:     string(raw),
 		}},
 	}, nil
+}
+
+func binaryArchivePayload(path string, contentType string, content []byte) map[string]any {
+	return map[string]any{
+		"path":           path,
+		"content_type":   contentType,
+		"size":           len(content),
+		"content_base64": base64.StdEncoding.EncodeToString(content),
+	}
 }

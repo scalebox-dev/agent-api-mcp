@@ -3,6 +3,7 @@ package agentapimcp_test
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +15,97 @@ import (
 )
 
 func TestRemoteMCPDeployedServer(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	session := connectRemoteSession(t, ctx)
+	defer session.Close()
+
+	tools, err := session.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("tools/list: %v", err)
+	}
+	if len(tools.Tools) == 0 {
+		t.Fatal("tools/list returned no tools")
+	}
+	for _, name := range []string{
+		"agent_api_list_models",
+		"agent_api_get_volume",
+		"agent_api_delete_volume_path",
+		"agent_api_create_skill",
+		"agent_api_import_skill_archive",
+	} {
+		if !hasTool(tools, name) {
+			t.Fatalf("tools/list missing %s; got %d tools", name, len(tools.Tools))
+		}
+	}
+
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "agent_api_list_models"})
+	if err != nil {
+		t.Fatalf("tools/call agent_api_list_models: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("agent_api_list_models returned MCP tool error: %s", textContent(result.Content))
+	}
+	if got := textContent(result.Content); !strings.Contains(got, `"object"`) && !strings.Contains(got, `"data"`) {
+		t.Fatalf("agent_api_list_models returned unexpected content: %s", got)
+	}
+}
+
+func TestRemoteMCPAgentResponseE2E(t *testing.T) {
+	requireRemoteTestLevel(t, "agent")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	session := connectRemoteSession(t, ctx)
+	defer session.Close()
+
+	created := callToolJSON(t, ctx, session, "agent_api_create_response", map[string]any{
+		"input":             "What is the latest FIFA 2026 World Cup news?",
+		"preset":            "pro-search",
+		"max_output_tokens": 512,
+		"max_steps":         4,
+		"store":             true,
+	})
+	id, _ := created["id"].(string)
+	if !strings.HasPrefix(id, "resp_") {
+		t.Fatalf("agent_api_create_response returned id %q", id)
+	}
+	if object, _ := created["object"].(string); object != "" && object != "response" {
+		t.Fatalf("agent_api_create_response object = %q", object)
+	}
+
+	retrieved := callToolJSON(t, ctx, session, "agent_api_get_response", map[string]any{
+		"response_id": id,
+	})
+	if got, _ := retrieved["id"].(string); got != id {
+		t.Fatalf("agent_api_get_response id = %q, want %q", got, id)
+	}
+}
+
+func requireRemoteTestLevel(t *testing.T, minimum string) {
+	t.Helper()
+
+	env := loadTestEnv(t, ".test.env")
+	level := strings.ToLower(firstNonEmpty(os.Getenv("AGENT_API_MCP_TEST_LEVEL"), env["AGENT_API_MCP_TEST_LEVEL"], "smoke"))
+	if !remoteTestLevelEnabled(level, minimum) {
+		t.Skipf("set AGENT_API_MCP_TEST_LEVEL=%s or full to run this remote MCP workload; current level is %s", minimum, level)
+	}
+}
+
+func remoteTestLevelEnabled(level string, minimum string) bool {
+	rank := map[string]int{
+		"smoke": 1,
+		"agent": 2,
+		"full":  3,
+	}
+	return rank[level] >= rank[minimum]
+}
+
+func connectRemoteSession(t *testing.T, ctx context.Context) *mcp.ClientSession {
+	t.Helper()
+
 	env := loadTestEnv(t, ".test.env")
 	apiKey := firstNonEmpty(os.Getenv("AGENT_API_KEY"), env["AGENT_API_KEY"])
 	if apiKey == "" {
@@ -24,9 +116,6 @@ func TestRemoteMCPDeployedServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
 
 	client := mcp.NewClient(&mcp.Implementation{
 		Name:    "agent-api-mcp-remote-test",
@@ -40,29 +129,26 @@ func TestRemoteMCPDeployedServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("connect remote MCP endpoint %s: %v", endpoint, err)
 	}
-	defer session.Close()
+	return session
+}
 
-	tools, err := session.ListTools(ctx, nil)
-	if err != nil {
-		t.Fatalf("tools/list: %v", err)
-	}
-	if len(tools.Tools) == 0 {
-		t.Fatal("tools/list returned no tools")
-	}
-	if !hasTool(tools, "agent_api_list_models") {
-		t.Fatalf("tools/list missing agent_api_list_models; got %d tools", len(tools.Tools))
-	}
+func callToolJSON(t *testing.T, ctx context.Context, session *mcp.ClientSession, name string, args map[string]any) map[string]any {
+	t.Helper()
 
-	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "agent_api_list_models"})
+	result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: args})
 	if err != nil {
-		t.Fatalf("tools/call agent_api_list_models: %v", err)
+		t.Fatalf("tools/call %s: %v", name, err)
 	}
+	body := textContent(result.Content)
 	if result.IsError {
-		t.Fatalf("agent_api_list_models returned MCP tool error: %s", textContent(result.Content))
+		t.Fatalf("%s returned MCP tool error: %s", name, body)
 	}
-	if got := textContent(result.Content); !strings.Contains(got, `"object"`) && !strings.Contains(got, `"data"`) {
-		t.Fatalf("agent_api_list_models returned unexpected content: %s", got)
+
+	var out map[string]any
+	if err := json.Unmarshal([]byte(body), &out); err != nil {
+		t.Fatalf("%s returned non-JSON content: %v: %s", name, err, body)
 	}
+	return out
 }
 
 func loadTestEnv(t *testing.T, path string) map[string]string {
@@ -112,7 +198,7 @@ func remoteMCPEndpoint(env map[string]string) (string, error) {
 
 func bearerHTTPClient(token string) *http.Client {
 	return &http.Client{
-		Timeout:   65 * time.Second,
+		Timeout:   5 * time.Minute,
 		Transport: bearerRoundTripper{token: token, base: http.DefaultTransport},
 	}
 }

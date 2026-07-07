@@ -18,6 +18,15 @@ type createVolumeInput struct {
 	Name string `json:"name,omitempty"`
 }
 
+type volumeIDInput struct {
+	VolumeID string `json:"volume_id"`
+}
+
+type updateVolumeInput struct {
+	VolumeID string `json:"volume_id"`
+	Name     string `json:"name,omitempty"`
+}
+
 type volumePathInput struct {
 	VolumeID string `json:"volume_id"`
 	Path     string `json:"path,omitempty"`
@@ -85,9 +94,45 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return ToolResult(out, err)
 		})
 
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_get_volume", Title: "Get Volume", Description: "Retrieve durable Agent API volume metadata.", Annotations: readOnlyTool(false)},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in volumeIDInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.VolumeID, "volume_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Volumes.Retrieve(ctx, in.VolumeID)
+			return ToolResult(out, err)
+		})
+
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_create_volume", Title: "Create Volume", Description: "Create a durable Agent API volume.", Annotations: mutatingTool(false, false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in createVolumeInput) (*mcp.CallToolResult, any, error) {
 			out, err := a.Client.Volumes.Create(ctx, in.Name)
+			return ToolResult(out, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_update_volume", Title: "Update Volume", Description: "Update durable Agent API volume metadata such as the display name.", Annotations: mutatingTool(false, false)},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in updateVolumeInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.VolumeID, "volume_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Volumes.UpdateWithParams(ctx, in.VolumeID, agentapi.UpdateVolumeParams{Name: in.Name})
+			return ToolResult(out, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_delete_volume", Title: "Delete Volume", Description: "Delete a durable Agent API volume.", Annotations: destructiveTool(false)},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in volumeIDInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.VolumeID, "volume_id"); err != nil {
+				return nil, nil, err
+			}
+			err := a.Client.Volumes.Delete(ctx, in.VolumeID)
+			return ToolResult(map[string]any{"deleted": err == nil, "volume_id": in.VolumeID}, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_reconcile_volume_usage", Title: "Reconcile Volume Usage", Description: "Recompute volume usage accounting for a durable Agent API volume.", Annotations: mutatingTool(false, false)},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in volumeIDInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.VolumeID, "volume_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Volumes.ReconcileUsage(ctx, in.VolumeID)
 			return ToolResult(out, err)
 		})
 
@@ -115,6 +160,30 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				Limit:     in.Limit,
 				PageToken: in.PageToken,
 			})
+			return ToolResult(out, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_create_volume_directory", Title: "Create Volume Directory", Description: "Create a directory inside a durable Agent API volume.", Annotations: mutatingTool(false, false)},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in volumePathInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.VolumeID, "volume_id"); err != nil {
+				return nil, nil, err
+			}
+			if err := require(in.Path, "path"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Volumes.CreateDirectory(ctx, in.VolumeID, in.Path)
+			return ToolResult(out, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_delete_volume_path", Title: "Delete Volume Path", Description: "Delete a file or directory path inside a durable Agent API volume.", Annotations: destructiveTool(false)},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in volumePathInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.VolumeID, "volume_id"); err != nil {
+				return nil, nil, err
+			}
+			if err := require(in.Path, "path"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Volumes.DeletePath(ctx, in.VolumeID, in.Path)
 			return ToolResult(out, err)
 		})
 
@@ -193,6 +262,18 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				PageToken: in.PageToken,
 			})
 			return ToolResult(out, err)
+		})
+
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_download_volume_archive", Title: "Download Volume Archive", Description: "Download a volume subtree as an archive encoded as base64 content.", Annotations: readOnlyTool(false)},
+		func(ctx context.Context, _ *mcp.CallToolRequest, in volumePathInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.VolumeID, "volume_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Volumes.DownloadArchive(ctx, in.VolumeID, in.Path)
+			if err != nil {
+				return ToolResult(nil, err)
+			}
+			return ToolResult(binaryArchivePayload(out.Path, out.ContentType, out.Content), nil)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_summarize_volume", Title: "Summarize Volume", Description: "Summarize volume contents and text previews.", Annotations: readOnlyTool(false)},

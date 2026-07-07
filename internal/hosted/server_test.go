@@ -95,10 +95,15 @@ func TestDocsPage(t *testing.T) {
 	}
 	body := string(raw)
 	for _, want := range []string{
-		"Agent API MCP Server",
+		"Agent API MCP Server Documentation",
+		"Use Agent API from any MCP-compatible client.",
 		"https://mcp.example.test/mcp",
 		"https://mcp.example.test/.well-known/oauth-protected-resource",
 		"https://api.example.test",
+		"agent_api_create_response",
+		"agent_api_list_models",
+		"agentapi://responses/{response_id}/events",
+		"research_with_agent",
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("docs missing %q in %s", want, body)
