@@ -4,4 +4,6 @@ coverage/
 .env
 .env.*
 !.env.example
+.test.env
+!.test.env.example
 *.log
