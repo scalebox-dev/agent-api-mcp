@@ -103,7 +103,7 @@ func (a *App) registerResponseTools(server *mcp.Server) {
 				User:               in.User,
 			}
 			out, err := a.Client.Responses.Create(ctx, params)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_responses", Title: "List Agent Responses", Description: "List stored responses visible to the credential.", Annotations: readOnlyTool(false)},
@@ -114,7 +114,7 @@ func (a *App) registerResponseTools(server *mcp.Server) {
 				SafetyIdentifier: in.SafetyIdentifier,
 				UserID:           in.UserID,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_get_response", Title: "Get Agent Response", Description: "Retrieve a persisted Agent API response by id.", Annotations: readOnlyTool(false)},
@@ -125,7 +125,7 @@ func (a *App) registerResponseTools(server *mcp.Server) {
 			out, err := a.Client.Responses.RetrieveWithParams(ctx, in.ResponseID, agentapi.RetrieveResponseParams{
 				SafetyIdentifier: in.SafetyIdentifier,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_cancel_response", Title: "Cancel Agent Response", Description: "Best-effort cancellation for an in-flight response.", Annotations: destructiveTool(false)},
@@ -134,7 +134,7 @@ func (a *App) registerResponseTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Responses.Cancel(ctx, in.ResponseID)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_response_events", Title: "List Response Events", Description: "List response audit/timeline events.", Annotations: readOnlyTool(false)},
@@ -146,7 +146,7 @@ func (a *App) registerResponseTools(server *mcp.Server) {
 				AfterSequence: int64(in.AfterSequence),
 				View:          in.View,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_child_responses", Title: "List Child Responses", Description: "List delegated sub-agent runs for a parent response.", Annotations: readOnlyTool(false)},
@@ -155,7 +155,7 @@ func (a *App) registerResponseTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Responses.ListChildren(ctx, in.ResponseID)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_get_response_volume", Title: "Get Response Volume", Description: "Resolve the durable agent volume associated with a response.", Annotations: readOnlyTool(false)},
@@ -164,6 +164,6 @@ func (a *App) registerResponseTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Responses.RetrieveVolume(ctx, in.ResponseID)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 }

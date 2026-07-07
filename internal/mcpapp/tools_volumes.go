@@ -82,13 +82,13 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				PageToken: in.PageToken,
 				UserID:    in.UserID,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_create_volume", Title: "Create Volume", Description: "Create a durable Agent API volume.", Annotations: mutatingTool(false, false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in createVolumeInput) (*mcp.CallToolResult, any, error) {
 			out, err := a.Client.Volumes.Create(ctx, in.Name)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_volume_entries", Title: "List Volume Entries", Description: "List files and directories inside a volume.", Annotations: readOnlyTool(false)},
@@ -101,7 +101,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				Limit:     in.Limit,
 				PageToken: in.PageToken,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_search_volume_entries", Title: "Search Volume Entries", Description: "Search file and directory paths inside a volume.", Annotations: readOnlyTool(false)},
@@ -115,7 +115,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				Limit:     in.Limit,
 				PageToken: in.PageToken,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_volume_file", Title: "Read Volume File", Description: "Read a volume file.", Annotations: readOnlyTool(false)},
@@ -129,10 +129,10 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			params := agentapi.ReadFileParams{MaxBytes: in.MaxBytes}
 			if strings.EqualFold(in.Format, "raw") {
 				out, err := a.Client.Volumes.ReadFileRaw(ctx, in.VolumeID, in.Path, params)
-				return JSONText(out), out, err
+				return ToolResult(out, err)
 			}
 			out, err := a.Client.Volumes.ReadFile(ctx, in.VolumeID, in.Path, params)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_write_volume_file", Title: "Write Volume File", Description: "Write text content to a volume file, replacing existing content at the target path.", Annotations: destructiveTool(false)},
@@ -144,7 +144,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Volumes.WriteFile(ctx, in.VolumeID, in.Path, []byte(in.Content))
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_volume_lines", Title: "Read Volume Lines", Description: "Read a line range from a text file in a volume.", Annotations: readOnlyTool(false)},
@@ -159,7 +159,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				StartLine: in.StartLine,
 				EndLine:   in.EndLine,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_patch_volume_lines", Title: "Patch Volume Lines", Description: "Replace a line range in a volume text file.", Annotations: destructiveTool(false)},
@@ -175,7 +175,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				EndLine:     in.EndLine,
 				Replacement: in.Replacement,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_grep_volume", Title: "Grep Volume", Description: "Search text content inside volume files.", Annotations: readOnlyTool(false)},
@@ -192,7 +192,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				Limit:     in.Limit,
 				PageToken: in.PageToken,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_summarize_volume", Title: "Summarize Volume", Description: "Summarize volume contents and text previews.", Annotations: readOnlyTool(false)},
@@ -201,6 +201,6 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Volumes.Summarize(ctx, in.VolumeID, in.Path)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 }

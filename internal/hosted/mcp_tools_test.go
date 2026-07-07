@@ -71,6 +71,13 @@ func (api *fakeAgentAPI) handle(w http.ResponseWriter, req *http.Request) {
 	case req.Method == http.MethodGet && req.URL.Path == "/v1/models":
 		_, _ = io.WriteString(w, `{"object":"list","data":[{"id":"test/model","name":"Test Model"}]}`)
 	case req.Method == http.MethodPost && req.URL.Path == "/v1/responses":
+		if body["model"] == "test/rate-limited" {
+			w.Header().Set("X-Request-Id", "req_rate_limited")
+			w.Header().Set("Retry-After", "2")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = io.WriteString(w, `{"error":{"message":"too many requests","code":"rate_limit_exceeded","type":"rate_limit"}}`)
+			return
+		}
 		_, _ = io.WriteString(w, `{"id":"resp_123","object":"response","created_at":1,"status":"completed","model":"test/model","output":[],"output_text":"done"}`)
 	case req.Method == http.MethodGet && req.URL.Path == "/v1/volumes/vol_123/files/notes.txt":
 		_, _ = io.WriteString(w, `{"path":"notes.txt","encoding":"utf-8","mime_type":"text/plain","size":5,"truncated":false,"content":"hello"}`)
@@ -189,6 +196,42 @@ func TestMCPToolListAdvertisesSafetyAnnotations(t *testing.T) {
 	assertToolAnnotation(t, byName, "agent_api_create_response", "destructiveHint", false)
 	assertToolAnnotation(t, byName, "agent_api_write_volume_file", "destructiveHint", true)
 	assertToolAnnotation(t, byName, "agent_api_accept_skill_dev", "destructiveHint", true)
+}
+
+func TestMCPToolFormatsAgentAPIErrors(t *testing.T) {
+	api := newFakeAgentAPI(t)
+	mcpServer := newTestMCPServer(t, api.URL(), "sk_fallback")
+
+	result := callMCPTool(t, mcpServer.URL+"/mcp", "Bearer user_token", "agent_api_create_response", map[string]any{
+		"input": "hello",
+		"model": "test/rate-limited",
+	})
+	if got := result["isError"]; got != true {
+		t.Fatalf("isError = %#v, want true; result=%#v", got, result)
+	}
+	structured, ok := result["structuredContent"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing structuredContent: %#v", result)
+	}
+	errPayload, ok := structured["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing structured error: %#v", structured)
+	}
+	if got := errPayload["kind"]; got != "rate_limit" {
+		t.Fatalf("error kind = %#v, want rate_limit", got)
+	}
+	if got := errPayload["status"]; got != float64(http.StatusTooManyRequests) {
+		t.Fatalf("error status = %#v, want 429", got)
+	}
+	if got := errPayload["code"]; got != "rate_limit_exceeded" {
+		t.Fatalf("error code = %#v, want rate_limit_exceeded", got)
+	}
+	if got := errPayload["request_id"]; got != "req_rate_limited" {
+		t.Fatalf("error request_id = %#v, want req_rate_limited", got)
+	}
+	if got := errPayload["retry_after_ms"]; got != float64(2000) {
+		t.Fatalf("error retry_after_ms = %#v, want 2000", got)
+	}
 }
 
 func newTestMCPServer(t *testing.T, agentAPIBaseURL string, apiKey string) *httptest.Server {

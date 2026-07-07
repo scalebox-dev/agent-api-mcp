@@ -23,6 +23,6 @@ func (a *App) registerMemoryTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Memories.Search(ctx, agentapi.MemorySearchParams(in))
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 }

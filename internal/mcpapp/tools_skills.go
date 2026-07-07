@@ -73,7 +73,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				PageToken:       in.PageToken,
 				UserID:          in.UserID,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_get_skill", Title: "Get Skill", Description: "Retrieve skill metadata.", Annotations: readOnlyTool(false)},
@@ -82,7 +82,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Skills.Retrieve(ctx, in.SkillID)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_discover_skills", Title: "Discover Skills", Description: "Discover relevant skills for a task or query.", Annotations: readOnlyTool(false)},
@@ -96,7 +96,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				TenantSearch:       in.TenantSearch,
 				LocalSkills:        in.LocalSkills,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_focus_skills", Title: "Focus Skills", Description: "Load selected skill manifests and files for model context.", Annotations: readOnlyTool(false)},
@@ -107,7 +107,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				MaxManifestChars: in.MaxManifestChars,
 				MaxFileChars:     in.MaxFileChars,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_skill_files", Title: "List Skill Files", Description: "List files in a skill branch.", Annotations: readOnlyTool(false)},
@@ -122,7 +122,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				Limit:          in.Limit,
 				PageToken:      in.PageToken,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_skill_file", Title: "Read Skill File", Description: "Read a file from a skill branch.", Annotations: readOnlyTool(false)},
@@ -138,7 +138,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				FallbackToMain: boolPtr(in.FallbackToMain),
 				MaxBytes:       in.MaxBytes,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_write_skill_file", Title: "Write Skill File", Description: "Write text content to a skill branch file, replacing existing content at the target path.", Annotations: destructiveTool(false)},
@@ -150,7 +150,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Skills.WriteFile(ctx, in.SkillID, in.Path, []byte(in.Content), in.Branch)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_diff_skill", Title: "Diff Skill", Description: "Diff skill main and dev branches.", Annotations: readOnlyTool(false)},
@@ -163,7 +163,7 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				MaxFileChars:     in.MaxFileChars,
 				IncludeUnchanged: in.IncludeUnchanged,
 			})
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_accept_skill_dev", Title: "Accept Skill Dev", Description: "Promote a skill dev branch to main.", Annotations: destructiveTool(false)},
@@ -172,6 +172,6 @@ func (a *App) registerSkillTools(server *mcp.Server) {
 				return nil, nil, err
 			}
 			out, err := a.Client.Skills.AcceptDev(ctx, in.SkillID, in.Strategy)
-			return JSONText(out), out, err
+			return ToolResult(out, err)
 		})
 }
