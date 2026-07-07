@@ -14,7 +14,6 @@ import (
 func TestHealthAndMCPInitialize(t *testing.T) {
 	cfg := config.Load([]string{
 		"AGENT_API_BASE_URL=http://agent-api.local",
-		"AGENT_API_KEY=sk_test",
 		"AGENT_API_MCP_PATH=/mcp",
 	})
 	server, err := NewServer(cfg, slog.Default())

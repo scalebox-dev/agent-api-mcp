@@ -21,7 +21,7 @@ func NewServer(cfg config.Config, logger *slog.Logger) (*http.Server, error) {
 		SessionTimeout: cfg.SessionTimeout,
 	})
 
-	mux.Handle(cfg.MCPPath, mcpHandler)
+	mux.Handle(cfg.MCPPath, requireBearerAuth(mcpHandler))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
@@ -41,6 +41,21 @@ func NewServer(cfg config.Config, logger *slog.Logger) (*http.Server, error) {
 		Addr:    cfg.ListenAddr,
 		Handler: mux,
 	}, nil
+}
+
+func requireBearerAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if mcpapp.AuthHeaderFromRequest(req) == "" {
+			writeJSON(w, http.StatusUnauthorized, map[string]any{
+				"error": map[string]any{
+					"code":    "unauthorized",
+					"message": "Authorization bearer token is required",
+				},
+			})
+			return
+		}
+		next.ServeHTTP(w, req)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

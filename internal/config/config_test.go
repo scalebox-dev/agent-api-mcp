@@ -26,7 +26,6 @@ func TestLoadDefaults(t *testing.T) {
 func TestLoadExplicitValues(t *testing.T) {
 	cfg := Load([]string{
 		"AGENT_API_BASE_URL=http://localhost:18000/",
-		"AGENT_API_KEY=sk_test",
 		"AGENT_API_MCP_ADDR=:9090",
 		"AGENT_API_MCP_PATH=mcp",
 		"AGENT_API_HTTP_TIMEOUT_MS=1234",
@@ -34,7 +33,7 @@ func TestLoadExplicitValues(t *testing.T) {
 	if cfg.AgentAPIBaseURL != "http://localhost:18000" {
 		t.Fatalf("AgentAPIBaseURL = %q", cfg.AgentAPIBaseURL)
 	}
-	if cfg.AgentAPIKey != "sk_test" || cfg.ListenAddr != ":9090" || cfg.MCPPath != "/mcp" {
+	if cfg.ListenAddr != ":9090" || cfg.MCPPath != "/mcp" {
 		t.Fatalf("unexpected config: %+v", cfg)
 	}
 	if cfg.HTTPTimeout != 1234*time.Millisecond {
@@ -47,7 +46,6 @@ func TestLoadDotEnv(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`
 # local development settings
 AGENT_API_BASE_URL=http://localhost:18000/
-AGENT_API_KEY="sk_from_file"
 AGENT_API_MCP_ADDR=:9090
 AGENT_API_MCP_PATH=mcp
 AGENT_API_HTTP_TIMEOUT_MS=1234
@@ -61,7 +59,7 @@ IGNORED_LINE
 	if cfg.AgentAPIBaseURL != "http://localhost:18000" {
 		t.Fatalf("AgentAPIBaseURL = %q", cfg.AgentAPIBaseURL)
 	}
-	if cfg.AgentAPIKey != "sk_from_file" || cfg.ListenAddr != ":9090" || cfg.MCPPath != "/mcp" {
+	if cfg.ListenAddr != ":9090" || cfg.MCPPath != "/mcp" {
 		t.Fatalf("unexpected config: %+v", cfg)
 	}
 	if cfg.HTTPTimeout != 1234*time.Millisecond {
@@ -74,15 +72,12 @@ IGNORED_LINE
 
 func TestLoadDotEnvProcessEnvWins(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
-	if err := os.WriteFile(path, []byte("AGENT_API_KEY=sk_from_file\nAGENT_API_MCP_ADDR=:9090\n"), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte("AGENT_API_MCP_ADDR=:9090\n"), 0o600); err != nil {
 		t.Fatalf("write .env: %v", err)
 	}
 
-	cfg := LoadDotEnv([]string{"AGENT_API_KEY=sk_from_env"}, path)
-	if cfg.AgentAPIKey != "sk_from_env" {
-		t.Fatalf("AgentAPIKey = %q, want process env override", cfg.AgentAPIKey)
-	}
-	if cfg.ListenAddr != ":9090" {
-		t.Fatalf("ListenAddr = %q, want .env fallback", cfg.ListenAddr)
+	cfg := LoadDotEnv([]string{"AGENT_API_MCP_ADDR=:8088"}, path)
+	if cfg.ListenAddr != ":8088" {
+		t.Fatalf("ListenAddr = %q, want process env override", cfg.ListenAddr)
 	}
 }

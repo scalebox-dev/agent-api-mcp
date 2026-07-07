@@ -26,7 +26,6 @@ func NewServer(cfg config.Config, logger *slog.Logger, requestAuth string) *mcp.
 		Config: cfg,
 		Logger: logger,
 		Client: agentapi.NewClient(&agentapi.ClientOptions{
-			APIKey:         cfg.AgentAPIKey,
 			BaseURL:        cfg.AgentAPIBaseURL,
 			Timeout:        cfg.HTTPTimeout,
 			DefaultHeaders: defaultHeaders,

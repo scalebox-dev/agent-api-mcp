@@ -86,11 +86,34 @@ func (api *fakeAgentAPI) handle(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func TestMCPToolUsesFallbackAPIKey(t *testing.T) {
+func TestMCPToolRequiresAuthorization(t *testing.T) {
 	api := newFakeAgentAPI(t)
-	mcpServer := newTestMCPServer(t, api.URL(), "sk_fallback")
+	mcpServer := newTestMCPServer(t, api.URL())
 
-	result := callMCPTool(t, mcpServer.URL+"/mcp", "", "agent_api_list_models", map[string]any{})
+	req, err := http.NewRequest(http.MethodPost, mcpServer.URL+"/mcp", bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	if err != nil {
+		t.Fatalf("new MCP request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /mcp: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("POST /mcp status = %d, want 401", resp.StatusCode)
+	}
+	if got := len(api.Requests()); got != 0 {
+		t.Fatalf("Agent API requests = %d, want 0", got)
+	}
+}
+
+func TestMCPToolForwardsAuthorization(t *testing.T) {
+	api := newFakeAgentAPI(t)
+	mcpServer := newTestMCPServer(t, api.URL())
+
+	result := callMCPTool(t, mcpServer.URL+"/mcp", "Bearer user_token", "agent_api_list_models", map[string]any{})
 	text := toolText(t, result)
 	if !bytes.Contains([]byte(text), []byte("test/model")) {
 		t.Fatalf("tool result text = %s", text)
@@ -100,7 +123,7 @@ func TestMCPToolUsesFallbackAPIKey(t *testing.T) {
 	if len(requests) != 1 {
 		t.Fatalf("Agent API requests = %d, want 1", len(requests))
 	}
-	if got, want := requests[0].Authorization, "Bearer sk_fallback"; got != want {
+	if got, want := requests[0].Authorization, "Bearer user_token"; got != want {
 		t.Fatalf("Agent API Authorization = %q, want %q", got, want)
 	}
 	if got, want := requests[0].Method+" "+requests[0].Path, "GET /v1/models"; got != want {
@@ -110,7 +133,7 @@ func TestMCPToolUsesFallbackAPIKey(t *testing.T) {
 
 func TestMCPToolsForwardRequestAuthorizationAndCallSDK(t *testing.T) {
 	api := newFakeAgentAPI(t)
-	mcpServer := newTestMCPServer(t, api.URL(), "sk_fallback")
+	mcpServer := newTestMCPServer(t, api.URL())
 
 	create := callMCPTool(t, mcpServer.URL+"/mcp", "Bearer user_token", "agent_api_create_response", map[string]any{
 		"input":             "hello",
@@ -175,9 +198,9 @@ func TestMCPToolsForwardRequestAuthorizationAndCallSDK(t *testing.T) {
 
 func TestMCPToolListAdvertisesSafetyAnnotations(t *testing.T) {
 	api := newFakeAgentAPI(t)
-	mcpServer := newTestMCPServer(t, api.URL(), "sk_fallback")
+	mcpServer := newTestMCPServer(t, api.URL())
 
-	result := callMCPRequest(t, mcpServer.URL+"/mcp", "", "tools/list", map[string]any{})
+	result := callMCPRequest(t, mcpServer.URL+"/mcp", "Bearer user_token", "tools/list", map[string]any{})
 	tools, ok := result["tools"].([]any)
 	if !ok {
 		t.Fatalf("tools/list missing tools: %#v", result)
@@ -200,7 +223,7 @@ func TestMCPToolListAdvertisesSafetyAnnotations(t *testing.T) {
 
 func TestMCPToolFormatsAgentAPIErrors(t *testing.T) {
 	api := newFakeAgentAPI(t)
-	mcpServer := newTestMCPServer(t, api.URL(), "sk_fallback")
+	mcpServer := newTestMCPServer(t, api.URL())
 
 	result := callMCPTool(t, mcpServer.URL+"/mcp", "Bearer user_token", "agent_api_create_response", map[string]any{
 		"input": "hello",
@@ -234,11 +257,10 @@ func TestMCPToolFormatsAgentAPIErrors(t *testing.T) {
 	}
 }
 
-func newTestMCPServer(t *testing.T, agentAPIBaseURL string, apiKey string) *httptest.Server {
+func newTestMCPServer(t *testing.T, agentAPIBaseURL string) *httptest.Server {
 	t.Helper()
 	cfg := config.Load([]string{
 		"AGENT_API_BASE_URL=" + agentAPIBaseURL,
-		"AGENT_API_KEY=" + apiKey,
 		"AGENT_API_MCP_PATH=/mcp",
 	})
 	server, err := NewServer(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))

@@ -15,9 +15,9 @@ intended to run next to or behind Agent API's public gateway.
 MCP client -> agent-api-mcp -> Agent API HTTP gateway -> Agent API services
 ```
 
-Incoming `Authorization: Bearer ...` headers are forwarded to Agent API. For
-local development or service-key deployments, `AGENT_API_KEY` can be set as a
-fallback credential.
+Incoming `Authorization: Bearer ...` headers are required and forwarded to
+Agent API. The MCP server does not provide or fall back to a managed Agent API
+key.
 
 ## Build
 
@@ -55,7 +55,6 @@ Endpoints:
 The supported service environment variables are tracked in `.env.example`.
 
 - `AGENT_API_BASE_URL` - Agent API upstream base URL.
-- `AGENT_API_KEY` - optional fallback service credential.
 - `AGENT_API_MCP_ADDR` - hosted HTTP bind address.
 - `AGENT_API_MCP_PATH` - Streamable HTTP MCP endpoint path.
 - `AGENT_API_HTTP_TIMEOUT_MS` - Agent API SDK request timeout.

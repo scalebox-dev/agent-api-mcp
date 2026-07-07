@@ -19,7 +19,6 @@ const (
 
 type Config struct {
 	AgentAPIBaseURL string
-	AgentAPIKey     string
 	ListenAddr      string
 	MCPPath         string
 	HTTPTimeout     time.Duration
@@ -50,7 +49,6 @@ func LoadDotEnv(environ []string, paths ...string) Config {
 func load(env map[string]string) Config {
 	return Config{
 		AgentAPIBaseURL: cleanBaseURL(firstNonEmpty(env["AGENT_API_BASE_URL"], defaultAgentAPIBaseURL)),
-		AgentAPIKey:     strings.TrimSpace(env["AGENT_API_KEY"]),
 		ListenAddr:      firstNonEmpty(env["AGENT_API_MCP_ADDR"], defaultListenAddr),
 		MCPPath:         cleanPath(firstNonEmpty(env["AGENT_API_MCP_PATH"], defaultMCPPath)),
 		HTTPTimeout:     durationMillis(env["AGENT_API_HTTP_TIMEOUT_MS"], defaultHTTPTimeout),
