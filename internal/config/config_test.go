@@ -12,6 +12,12 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.AgentAPIBaseURL != defaultAgentAPIBaseURL {
 		t.Fatalf("AgentAPIBaseURL = %q, want %q", cfg.AgentAPIBaseURL, defaultAgentAPIBaseURL)
 	}
+	if cfg.AuthorizationServerURL != defaultAgentAPIBaseURL {
+		t.Fatalf("AuthorizationServerURL = %q, want %q", cfg.AuthorizationServerURL, defaultAgentAPIBaseURL)
+	}
+	if cfg.MCPPublicBaseURL != "" {
+		t.Fatalf("MCPPublicBaseURL = %q, want empty", cfg.MCPPublicBaseURL)
+	}
 	if cfg.ListenAddr != defaultListenAddr {
 		t.Fatalf("ListenAddr = %q, want %q", cfg.ListenAddr, defaultListenAddr)
 	}
@@ -28,10 +34,18 @@ func TestLoadExplicitValues(t *testing.T) {
 		"AGENT_API_BASE_URL=http://localhost:18000/",
 		"AGENT_API_MCP_ADDR=:9090",
 		"AGENT_API_MCP_PATH=mcp",
+		"AGENT_API_MCP_PUBLIC_BASE_URL=https://mcp.example.test/",
+		"AGENT_API_AUTHORIZATION_SERVER_URL=https://api.example.test/",
 		"AGENT_API_HTTP_TIMEOUT_MS=1234",
 	})
 	if cfg.AgentAPIBaseURL != "http://localhost:18000" {
 		t.Fatalf("AgentAPIBaseURL = %q", cfg.AgentAPIBaseURL)
+	}
+	if cfg.MCPPublicBaseURL != "https://mcp.example.test" {
+		t.Fatalf("MCPPublicBaseURL = %q", cfg.MCPPublicBaseURL)
+	}
+	if cfg.AuthorizationServerURL != "https://api.example.test" {
+		t.Fatalf("AuthorizationServerURL = %q", cfg.AuthorizationServerURL)
 	}
 	if cfg.ListenAddr != ":9090" || cfg.MCPPath != "/mcp" {
 		t.Fatalf("unexpected config: %+v", cfg)

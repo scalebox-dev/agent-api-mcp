@@ -18,11 +18,13 @@ const (
 )
 
 type Config struct {
-	AgentAPIBaseURL string
-	ListenAddr      string
-	MCPPath         string
-	HTTPTimeout     time.Duration
-	SessionTimeout  time.Duration
+	AgentAPIBaseURL        string
+	AuthorizationServerURL string
+	MCPPublicBaseURL       string
+	ListenAddr             string
+	MCPPath                string
+	HTTPTimeout            time.Duration
+	SessionTimeout         time.Duration
 }
 
 func Load(environ []string) Config {
@@ -47,12 +49,19 @@ func LoadDotEnv(environ []string, paths ...string) Config {
 }
 
 func load(env map[string]string) Config {
+	agentAPIBaseURL := cleanBaseURL(firstNonEmpty(env["AGENT_API_BASE_URL"], defaultAgentAPIBaseURL))
 	return Config{
-		AgentAPIBaseURL: cleanBaseURL(firstNonEmpty(env["AGENT_API_BASE_URL"], defaultAgentAPIBaseURL)),
-		ListenAddr:      firstNonEmpty(env["AGENT_API_MCP_ADDR"], defaultListenAddr),
-		MCPPath:         cleanPath(firstNonEmpty(env["AGENT_API_MCP_PATH"], defaultMCPPath)),
-		HTTPTimeout:     durationMillis(env["AGENT_API_HTTP_TIMEOUT_MS"], defaultHTTPTimeout),
-		SessionTimeout:  durationMillis(env["AGENT_API_MCP_SESSION_TIMEOUT_MS"], defaultSessionTimeout),
+		AgentAPIBaseURL: agentAPIBaseURL,
+		AuthorizationServerURL: cleanBaseURL(firstNonEmpty(
+			env["AGENT_API_AUTHORIZATION_SERVER_URL"],
+			env["AGENT_API_PUBLIC_BASE_URL"],
+			agentAPIBaseURL,
+		)),
+		MCPPublicBaseURL: cleanOptionalBaseURL(env["AGENT_API_MCP_PUBLIC_BASE_URL"]),
+		ListenAddr:       firstNonEmpty(env["AGENT_API_MCP_ADDR"], defaultListenAddr),
+		MCPPath:          cleanPath(firstNonEmpty(env["AGENT_API_MCP_PATH"], defaultMCPPath)),
+		HTTPTimeout:      durationMillis(env["AGENT_API_HTTP_TIMEOUT_MS"], defaultHTTPTimeout),
+		SessionTimeout:   durationMillis(env["AGENT_API_MCP_SESSION_TIMEOUT_MS"], defaultSessionTimeout),
 	}
 }
 
@@ -129,6 +138,17 @@ func cleanBaseURL(raw string) string {
 	}
 	if _, err := url.ParseRequestURI(trimmed); err != nil {
 		return defaultAgentAPIBaseURL
+	}
+	return trimmed
+}
+
+func cleanOptionalBaseURL(raw string) string {
+	trimmed := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if trimmed == "" {
+		return ""
+	}
+	if _, err := url.ParseRequestURI(trimmed); err != nil {
+		return ""
 	}
 	return trimmed
 }
