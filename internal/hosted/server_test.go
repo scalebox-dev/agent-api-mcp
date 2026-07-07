@@ -3,9 +3,11 @@ package hosted
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/scalebox-dev/agent-api-mcp/internal/config"
@@ -59,6 +61,75 @@ func TestHealthAndMCPInitialize(t *testing.T) {
 	serverInfo, ok := result["serverInfo"].(map[string]any)
 	if !ok || serverInfo["name"] != "agent-api-mcp" {
 		t.Fatalf("unexpected serverInfo: %#v", result["serverInfo"])
+	}
+}
+
+func TestDocsPage(t *testing.T) {
+	cfg := config.Load([]string{
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=http://agent-api.local",
+		"AGENT_API_MCP_AUTHORIZATION_SERVER_URL=https://api.example.test",
+		"AGENT_API_MCP_PUBLIC_BASE_URL=https://mcp.example.test",
+		"AGENT_API_MCP_PATH=/mcp",
+	})
+	server, err := NewServer(cfg, slog.Default())
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	ts := httptest.NewServer(server.Handler)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/docs")
+	if err != nil {
+		t.Fatalf("GET /docs: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("GET /docs status = %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Content-Type"); !strings.HasPrefix(got, "text/html") {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read docs: %v", err)
+	}
+	body := string(raw)
+	for _, want := range []string{
+		"Agent API MCP Server",
+		"https://mcp.example.test/mcp",
+		"https://mcp.example.test/.well-known/oauth-protected-resource",
+		"https://api.example.test",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("docs missing %q in %s", want, body)
+		}
+	}
+}
+
+func TestRootRedirectsToDocs(t *testing.T) {
+	cfg := config.Load([]string{
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=http://agent-api.local",
+	})
+	server, err := NewServer(cfg, slog.Default())
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	ts := httptest.NewServer(server.Handler)
+	defer ts.Close()
+
+	client := &http.Client{CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+	resp, err := client.Get(ts.URL + "/")
+	if err != nil {
+		t.Fatalf("GET /: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusFound {
+		t.Fatalf("GET / status = %d", resp.StatusCode)
+	}
+	if got := resp.Header.Get("Location"); got != "/docs" {
+		t.Fatalf("Location = %q", got)
 	}
 }
 

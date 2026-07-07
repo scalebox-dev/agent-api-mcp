@@ -2,6 +2,7 @@ package hosted
 
 import (
 	"encoding/json"
+	"html"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -29,6 +30,8 @@ func NewServer(cfg config.Config, logger *slog.Logger) (*http.Server, error) {
 	if pathSpecific := protectedResourceWellKnownPath + cfg.MCPPath; pathSpecific != protectedResourceWellKnownPath {
 		mux.HandleFunc(pathSpecific, protectedResourceMetadataHandler(cfg))
 	}
+	mux.HandleFunc("/", docsRedirectHandler)
+	mux.HandleFunc("/docs", docsHandler(cfg))
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
@@ -135,6 +138,104 @@ func firstForwarded(value string) string {
 		value = before
 	}
 	return strings.TrimSpace(value)
+}
+
+func docsRedirectHandler(w http.ResponseWriter, req *http.Request) {
+	if req.URL.Path != "/" {
+		http.NotFound(w, req)
+		return
+	}
+	http.Redirect(w, req, "/docs", http.StatusFound)
+}
+
+func docsHandler(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet && req.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]any{
+				"error": map[string]any{
+					"code":    "method_not_allowed",
+					"message": "method must be GET or HEAD",
+				},
+			})
+			return
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		if req.Method == http.MethodHead {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(docsHTML(cfg, req)))
+	}
+}
+
+func docsHTML(cfg config.Config, req *http.Request) string {
+	origin := publicOrigin(cfg, req)
+	mcpURL := origin + cfg.MCPPath
+	metadataURL := origin + protectedResourceWellKnownPath
+	authServer := strings.TrimRight(strings.TrimSpace(cfg.AuthorizationServerURL), "/")
+	if authServer == "" {
+		authServer = cfg.AgentAPIBaseURL
+	}
+	mcpURL = html.EscapeString(mcpURL)
+	metadataURL = html.EscapeString(metadataURL)
+	authServer = html.EscapeString(authServer)
+	return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent API MCP Server</title>
+  <style>
+    :root { color-scheme: light dark; --border: #d0d7de; --muted: #57606a; --accent: #0969da; }
+    body { margin: 0; font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 48px 20px 64px; }
+    h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.15; }
+    h2 { margin: 32px 0 8px; font-size: 20px; }
+    p { margin: 8px 0; color: var(--muted); }
+    code, pre { font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre { overflow-x: auto; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; }
+    a { color: var(--accent); }
+    .endpoint { margin-top: 20px; padding: 14px 16px; border: 1px solid var(--border); border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Agent API MCP Server</h1>
+    <p>Use Agent API capabilities from MCP-compatible clients with your Agent API bearer token.</p>
+
+    <div class="endpoint">
+      <strong>MCP endpoint</strong>
+      <pre>` + mcpURL + `</pre>
+    </div>
+
+    <h2>Authentication</h2>
+    <p>Send your Agent API credential as an HTTP bearer token. The MCP server forwards it to Agent API and does not use a managed backend key.</p>
+    <pre>Authorization: Bearer &lt;agent-api-token&gt;</pre>
+
+    <h2>Client Configuration</h2>
+    <p>Use Streamable HTTP transport and configure the endpoint above in your MCP client.</p>
+    <pre>{
+  "mcpServers": {
+    "agent-api": {
+      "url": "` + mcpURL + `",
+      "headers": {
+        "Authorization": "Bearer &lt;agent-api-token&gt;"
+      }
+    }
+  }
+}</pre>
+
+    <h2>Discovery</h2>
+    <p>Protected-resource metadata is available at <a href="` + metadataURL + `">` + metadataURL + `</a>.</p>
+    <p>Authorization server: <code>` + authServer + `</code></p>
+
+    <h2>Health</h2>
+    <p><a href="/healthz">/healthz</a> and <a href="/readyz">/readyz</a> are available for operational checks.</p>
+  </main>
+</body>
+</html>`
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {
