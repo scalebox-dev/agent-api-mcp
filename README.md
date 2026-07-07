@@ -29,6 +29,15 @@ go test ./...
 ## Run
 
 ```bash
+cp .env.example .env
+# edit .env if needed
+go run ./cmd/agent-api-mcp
+```
+
+Process environment values override `.env` values, so hosted deployments should
+inject real environment variables rather than mounting a `.env` file.
+
+```bash
 AGENT_API_BASE_URL=https://api.agentsway.dev \
 AGENT_API_MCP_ADDR=:8080 \
 go run ./cmd/agent-api-mcp
@@ -40,6 +49,17 @@ Endpoints:
 - `GET /mcp` - MCP Streamable HTTP event stream endpoint when applicable
 - `GET /healthz` - liveness
 - `GET /readyz` - readiness/config sanity
+
+## Environment
+
+The supported service environment variables are tracked in `.env.example`.
+
+- `AGENT_API_BASE_URL` - Agent API upstream base URL.
+- `AGENT_API_KEY` - optional fallback service credential.
+- `AGENT_API_MCP_ADDR` - hosted HTTP bind address.
+- `AGENT_API_MCP_PATH` - Streamable HTTP MCP endpoint path.
+- `AGENT_API_HTTP_TIMEOUT_MS` - Agent API SDK request timeout.
+- `AGENT_API_MCP_SESSION_TIMEOUT_MS` - MCP session timeout.
 
 ## Initial Capability Map
 

@@ -16,7 +16,7 @@ import (
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	cfg := config.Load(os.Environ())
+	cfg := config.LoadDotEnv(os.Environ(), ".env")
 
 	server, err := hosted.NewServer(cfg, logger)
 	if err != nil {

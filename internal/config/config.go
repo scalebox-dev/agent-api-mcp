@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bufio"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -25,14 +27,27 @@ type Config struct {
 }
 
 func Load(environ []string) Config {
+	return load(environMap(environ))
+}
+
+func LoadDotEnv(environ []string, paths ...string) Config {
 	env := map[string]string{}
-	for _, item := range environ {
-		key, value, ok := strings.Cut(item, "=")
-		if ok {
+	for _, path := range paths {
+		values, err := readDotEnv(path)
+		if err != nil {
+			continue
+		}
+		for key, value := range values {
 			env[key] = value
 		}
 	}
+	for key, value := range environMap(environ) {
+		env[key] = value
+	}
+	return load(env)
+}
 
+func load(env map[string]string) Config {
 	return Config{
 		AgentAPIBaseURL: cleanBaseURL(firstNonEmpty(env["AGENT_API_BASE_URL"], defaultAgentAPIBaseURL)),
 		AgentAPIKey:     strings.TrimSpace(env["AGENT_API_KEY"]),
@@ -41,6 +56,59 @@ func Load(environ []string) Config {
 		HTTPTimeout:     durationMillis(env["AGENT_API_HTTP_TIMEOUT_MS"], defaultHTTPTimeout),
 		SessionTimeout:  durationMillis(env["AGENT_API_MCP_SESSION_TIMEOUT_MS"], defaultSessionTimeout),
 	}
+}
+
+func environMap(environ []string) map[string]string {
+	env := map[string]string{}
+	for _, item := range environ {
+		key, value, ok := strings.Cut(item, "=")
+		if ok {
+			env[key] = value
+		}
+	}
+	return env
+}
+
+func readDotEnv(path string) (map[string]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	values := map[string]string{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		if key == "" || strings.ContainsAny(key, " \t") {
+			continue
+		}
+		values[key] = cleanDotEnvValue(value)
+	}
+	return values, scanner.Err()
+}
+
+func cleanDotEnvValue(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) >= 2 {
+		quote := trimmed[0]
+		if (quote == '"' || quote == '\'') && trimmed[len(trimmed)-1] == quote {
+			return trimmed[1 : len(trimmed)-1]
+		}
+	}
+	if before, _, ok := strings.Cut(trimmed, " #"); ok {
+		return strings.TrimSpace(before)
+	}
+	return trimmed
 }
 
 func (c Config) Ready() bool {
