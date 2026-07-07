@@ -49,8 +49,12 @@ func LoadDotEnv(environ []string, paths ...string) Config {
 }
 
 func load(env map[string]string) Config {
+	baseDomain := cleanDomain(env["AGENT_API_PUBLIC_BASE_DOMAIN"])
+	derivedAgentAPIBaseURL := publicURL("api", baseDomain)
+	derivedMCPPublicBaseURL := publicURL("mcp", baseDomain)
 	agentAPIBaseURL := cleanBaseURL(firstNonEmpty(
 		env["AGENT_API_MCP_UPSTREAM_BASE_URL"],
+		derivedAgentAPIBaseURL,
 		defaultAgentAPIBaseURL,
 	))
 	return Config{
@@ -59,9 +63,12 @@ func load(env map[string]string) Config {
 			env["AGENT_API_MCP_AUTHORIZATION_SERVER_URL"],
 			agentAPIBaseURL,
 		)),
-		MCPPublicBaseURL: cleanOptionalBaseURL(env["AGENT_API_MCP_PUBLIC_BASE_URL"]),
-		ListenAddr:       firstNonEmpty(env["AGENT_API_MCP_ADDR"], defaultListenAddr),
-		MCPPath:          cleanPath(firstNonEmpty(env["AGENT_API_MCP_PATH"], defaultMCPPath)),
+		MCPPublicBaseURL: cleanOptionalBaseURL(firstNonEmpty(
+			env["AGENT_API_MCP_PUBLIC_BASE_URL"],
+			derivedMCPPublicBaseURL,
+		)),
+		ListenAddr: firstNonEmpty(env["AGENT_API_MCP_ADDR"], defaultListenAddr),
+		MCPPath:    cleanPath(firstNonEmpty(env["AGENT_API_MCP_PATH"], defaultMCPPath)),
 		HTTPTimeout: durationMillis(firstNonEmpty(
 			env["AGENT_API_MCP_HTTP_TIMEOUT_MS"],
 		), defaultHTTPTimeout),
@@ -155,6 +162,24 @@ func cleanOptionalBaseURL(raw string) string {
 		return ""
 	}
 	return trimmed
+}
+
+func cleanDomain(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	trimmed = strings.TrimPrefix(trimmed, "https://")
+	trimmed = strings.TrimPrefix(trimmed, "http://")
+	trimmed = strings.Trim(trimmed, "/")
+	if trimmed == "" || strings.ContainsAny(trimmed, "/ \t") {
+		return ""
+	}
+	return trimmed
+}
+
+func publicURL(subdomain string, domain string) string {
+	if domain == "" {
+		return ""
+	}
+	return "https://" + subdomain + "." + domain
 }
 
 func cleanPath(raw string) string {

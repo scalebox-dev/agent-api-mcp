@@ -55,6 +55,39 @@ func TestLoadExplicitValues(t *testing.T) {
 	}
 }
 
+func TestLoadDerivesPublicURLsFromBaseDomain(t *testing.T) {
+	cfg := Load([]string{
+		"AGENT_API_PUBLIC_BASE_DOMAIN=example.test",
+	})
+	if cfg.AgentAPIBaseURL != "https://api.example.test" {
+		t.Fatalf("AgentAPIBaseURL = %q", cfg.AgentAPIBaseURL)
+	}
+	if cfg.AuthorizationServerURL != "https://api.example.test" {
+		t.Fatalf("AuthorizationServerURL = %q", cfg.AuthorizationServerURL)
+	}
+	if cfg.MCPPublicBaseURL != "https://mcp.example.test" {
+		t.Fatalf("MCPPublicBaseURL = %q", cfg.MCPPublicBaseURL)
+	}
+}
+
+func TestExplicitURLsOverrideBaseDomainDerivation(t *testing.T) {
+	cfg := Load([]string{
+		"AGENT_API_PUBLIC_BASE_DOMAIN=example.test",
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=https://api.override.test",
+		"AGENT_API_MCP_AUTHORIZATION_SERVER_URL=https://auth.override.test",
+		"AGENT_API_MCP_PUBLIC_BASE_URL=https://mcp.override.test",
+	})
+	if cfg.AgentAPIBaseURL != "https://api.override.test" {
+		t.Fatalf("AgentAPIBaseURL = %q", cfg.AgentAPIBaseURL)
+	}
+	if cfg.AuthorizationServerURL != "https://auth.override.test" {
+		t.Fatalf("AuthorizationServerURL = %q", cfg.AuthorizationServerURL)
+	}
+	if cfg.MCPPublicBaseURL != "https://mcp.override.test" {
+		t.Fatalf("MCPPublicBaseURL = %q", cfg.MCPPublicBaseURL)
+	}
+}
+
 func TestLoadDotEnv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	if err := os.WriteFile(path, []byte(`
