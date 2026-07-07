@@ -58,14 +58,14 @@ Endpoints:
 The supported service environment variables are tracked in `.env.example`.
 
 - `AGENT_API_BASE_URL` - Agent API upstream base URL.
-- `AGENT_API_AUTHORIZATION_SERVER_URL` - public Agent API/auth origin
+- `AGENT_API_MCP_AUTHORIZATION_SERVER_URL` - public Agent API/auth origin
   advertised to MCP clients. Defaults to `AGENT_API_BASE_URL`.
 - `AGENT_API_MCP_PUBLIC_BASE_URL` - public MCP origin advertised in metadata.
   Leave empty for local development to derive it from `Host`/`X-Forwarded-*`
   request headers.
 - `AGENT_API_MCP_ADDR` - hosted HTTP bind address.
 - `AGENT_API_MCP_PATH` - Streamable HTTP MCP endpoint path.
-- `AGENT_API_HTTP_TIMEOUT_MS` - Agent API SDK request timeout.
+- `AGENT_API_MCP_HTTP_TIMEOUT_MS` - upstream Agent API request timeout for MCP.
 - `AGENT_API_MCP_SESSION_TIMEOUT_MS` - MCP session timeout.
 
 ## Initial Capability Map

@@ -35,8 +35,8 @@ func TestLoadExplicitValues(t *testing.T) {
 		"AGENT_API_MCP_ADDR=:9090",
 		"AGENT_API_MCP_PATH=mcp",
 		"AGENT_API_MCP_PUBLIC_BASE_URL=https://mcp.example.test/",
-		"AGENT_API_AUTHORIZATION_SERVER_URL=https://api.example.test/",
-		"AGENT_API_HTTP_TIMEOUT_MS=1234",
+		"AGENT_API_MCP_AUTHORIZATION_SERVER_URL=https://api.example.test/",
+		"AGENT_API_MCP_HTTP_TIMEOUT_MS=1234",
 	})
 	if cfg.AgentAPIBaseURL != "http://localhost:18000" {
 		t.Fatalf("AgentAPIBaseURL = %q", cfg.AgentAPIBaseURL)
@@ -62,7 +62,7 @@ func TestLoadDotEnv(t *testing.T) {
 AGENT_API_BASE_URL=http://localhost:18000/
 AGENT_API_MCP_ADDR=:9090
 AGENT_API_MCP_PATH=mcp
-AGENT_API_HTTP_TIMEOUT_MS=1234
+AGENT_API_MCP_HTTP_TIMEOUT_MS=1234
 AGENT_API_MCP_SESSION_TIMEOUT_MS=5678
 IGNORED_LINE
 `), 0o600); err != nil {
@@ -93,5 +93,18 @@ func TestLoadDotEnvProcessEnvWins(t *testing.T) {
 	cfg := LoadDotEnv([]string{"AGENT_API_MCP_ADDR=:8088"}, path)
 	if cfg.ListenAddr != ":8088" {
 		t.Fatalf("ListenAddr = %q, want process env override", cfg.ListenAddr)
+	}
+}
+
+func TestLoadAcceptsLegacyPlatformEnvNames(t *testing.T) {
+	cfg := Load([]string{
+		"AGENT_API_AUTHORIZATION_SERVER_URL=https://api.legacy.test",
+		"AGENT_API_HTTP_TIMEOUT_MS=4321",
+	})
+	if cfg.AuthorizationServerURL != "https://api.legacy.test" {
+		t.Fatalf("AuthorizationServerURL = %q", cfg.AuthorizationServerURL)
+	}
+	if cfg.HTTPTimeout != 4321*time.Millisecond {
+		t.Fatalf("HTTPTimeout = %v", cfg.HTTPTimeout)
 	}
 }

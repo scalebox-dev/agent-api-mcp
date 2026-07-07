@@ -53,6 +53,7 @@ func load(env map[string]string) Config {
 	return Config{
 		AgentAPIBaseURL: agentAPIBaseURL,
 		AuthorizationServerURL: cleanBaseURL(firstNonEmpty(
+			env["AGENT_API_MCP_AUTHORIZATION_SERVER_URL"],
 			env["AGENT_API_AUTHORIZATION_SERVER_URL"],
 			env["AGENT_API_PUBLIC_BASE_URL"],
 			agentAPIBaseURL,
@@ -60,8 +61,11 @@ func load(env map[string]string) Config {
 		MCPPublicBaseURL: cleanOptionalBaseURL(env["AGENT_API_MCP_PUBLIC_BASE_URL"]),
 		ListenAddr:       firstNonEmpty(env["AGENT_API_MCP_ADDR"], defaultListenAddr),
 		MCPPath:          cleanPath(firstNonEmpty(env["AGENT_API_MCP_PATH"], defaultMCPPath)),
-		HTTPTimeout:      durationMillis(env["AGENT_API_HTTP_TIMEOUT_MS"], defaultHTTPTimeout),
-		SessionTimeout:   durationMillis(env["AGENT_API_MCP_SESSION_TIMEOUT_MS"], defaultSessionTimeout),
+		HTTPTimeout: durationMillis(firstNonEmpty(
+			env["AGENT_API_MCP_HTTP_TIMEOUT_MS"],
+			env["AGENT_API_HTTP_TIMEOUT_MS"],
+		), defaultHTTPTimeout),
+		SessionTimeout: durationMillis(env["AGENT_API_MCP_SESSION_TIMEOUT_MS"], defaultSessionTimeout),
 	}
 }
 
