@@ -75,7 +75,7 @@ type grepVolumeInput struct {
 }
 
 func (a *App) registerVolumeTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_volumes", Description: "List durable Agent API volumes."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_volumes", Title: "List Volumes", Description: "List durable Agent API volumes.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in listVolumesInput) (*mcp.CallToolResult, any, error) {
 			out, err := a.Client.Volumes.List(ctx, agentapi.ListParams{
 				Limit:     in.Limit,
@@ -85,13 +85,13 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_create_volume", Description: "Create a durable Agent API volume."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_create_volume", Title: "Create Volume", Description: "Create a durable Agent API volume.", Annotations: mutatingTool(false, false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in createVolumeInput) (*mcp.CallToolResult, any, error) {
 			out, err := a.Client.Volumes.Create(ctx, in.Name)
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_volume_entries", Description: "List files and directories inside a volume."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_volume_entries", Title: "List Volume Entries", Description: "List files and directories inside a volume.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in listVolumeEntriesInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err
@@ -104,7 +104,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_search_volume_entries", Description: "Search file and directory paths inside a volume."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_search_volume_entries", Title: "Search Volume Entries", Description: "Search file and directory paths inside a volume.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in searchVolumeEntriesInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err
@@ -118,7 +118,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_volume_file", Description: "Read a volume file."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_volume_file", Title: "Read Volume File", Description: "Read a volume file.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in readVolumeFileInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err
@@ -135,7 +135,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_write_volume_file", Description: "Write text content to a volume file."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_write_volume_file", Title: "Write Volume File", Description: "Write text content to a volume file, replacing existing content at the target path.", Annotations: destructiveTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in writeVolumeFileInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err
@@ -147,7 +147,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_volume_lines", Description: "Read a line range from a text file in a volume."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_volume_lines", Title: "Read Volume Lines", Description: "Read a line range from a text file in a volume.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in readVolumeLinesInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err
@@ -162,7 +162,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_patch_volume_lines", Description: "Replace a line range in a volume text file."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_patch_volume_lines", Title: "Patch Volume Lines", Description: "Replace a line range in a volume text file.", Annotations: destructiveTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in patchVolumeLinesInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err
@@ -178,7 +178,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_grep_volume", Description: "Search text content inside volume files."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_grep_volume", Title: "Grep Volume", Description: "Search text content inside volume files.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in grepVolumeInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err
@@ -195,7 +195,7 @@ func (a *App) registerVolumeTools(server *mcp.Server) {
 			return JSONText(out), out, err
 		})
 
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_summarize_volume", Description: "Summarize volume contents and text previews."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_summarize_volume", Title: "Summarize Volume", Description: "Summarize volume contents and text previews.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in volumePathInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.VolumeID, "volume_id"); err != nil {
 				return nil, nil, err

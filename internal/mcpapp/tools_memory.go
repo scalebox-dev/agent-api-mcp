@@ -17,7 +17,7 @@ type searchMemoriesInput struct {
 }
 
 func (a *App) registerMemoryTools(server *mcp.Server) {
-	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_search_memories", Description: "Search Agent API long-term memory with thread or workspace scope."},
+	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_search_memories", Title: "Search Memories", Description: "Search Agent API long-term memory with thread or workspace scope.", Annotations: readOnlyTool(false)},
 		func(ctx context.Context, _ *mcp.CallToolRequest, in searchMemoriesInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.Query, "query"); err != nil {
 				return nil, nil, err

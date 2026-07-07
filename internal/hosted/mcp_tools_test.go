@@ -106,12 +106,15 @@ func TestMCPToolsForwardRequestAuthorizationAndCallSDK(t *testing.T) {
 	mcpServer := newTestMCPServer(t, api.URL(), "sk_fallback")
 
 	create := callMCPTool(t, mcpServer.URL+"/mcp", "Bearer user_token", "agent_api_create_response", map[string]any{
-		"input":        "hello",
-		"model":        "test/model",
-		"metadata":     map[string]any{"source": "mcp-test"},
-		"max_steps":    3,
-		"volume_id":    "vol_123",
-		"instructions": "Be concise.",
+		"input":             "hello",
+		"model":             "test/model",
+		"metadata":          map[string]any{"source": "mcp-test"},
+		"max_steps":         3,
+		"volume_id":         "vol_123",
+		"instructions":      "Be concise.",
+		"safety_identifier": "user-123",
+		"memory":            map[string]any{"enabled": true, "read": true},
+		"reasoning":         map[string]any{"effort": "low"},
 	})
 	if text := toolText(t, create); !bytes.Contains([]byte(text), []byte("resp_123")) {
 		t.Fatalf("create response result text = %s", text)
@@ -144,12 +147,48 @@ func TestMCPToolsForwardRequestAuthorizationAndCallSDK(t *testing.T) {
 	if got := requests[0].Body["input"]; got != "hello" {
 		t.Fatalf("create body input = %#v, want hello", got)
 	}
+	if got := requests[0].Body["safety_identifier"]; got != "user-123" {
+		t.Fatalf("create body safety_identifier = %#v, want user-123", got)
+	}
+	memory, ok := requests[0].Body["memory"].(map[string]any)
+	if !ok || memory["enabled"] != true || memory["read"] != true {
+		t.Fatalf("create body memory = %#v, want enabled/read", requests[0].Body["memory"])
+	}
+	reasoning, ok := requests[0].Body["reasoning"].(map[string]any)
+	if !ok || reasoning["effort"] != "low" {
+		t.Fatalf("create body reasoning = %#v, want effort low", requests[0].Body["reasoning"])
+	}
 	if got, want := requests[1].Method+" "+requests[1].Path, "GET /v1/volumes/vol_123/files/notes.txt"; got != want {
 		t.Fatalf("read request = %q, want %q", got, want)
 	}
 	if got, want := requests[1].RawQuery, "max_bytes=64"; got != want {
 		t.Fatalf("read query = %q, want %q", got, want)
 	}
+}
+
+func TestMCPToolListAdvertisesSafetyAnnotations(t *testing.T) {
+	api := newFakeAgentAPI(t)
+	mcpServer := newTestMCPServer(t, api.URL(), "sk_fallback")
+
+	result := callMCPRequest(t, mcpServer.URL+"/mcp", "", "tools/list", map[string]any{})
+	tools, ok := result["tools"].([]any)
+	if !ok {
+		t.Fatalf("tools/list missing tools: %#v", result)
+	}
+	byName := map[string]map[string]any{}
+	for _, item := range tools {
+		tool, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("tool item = %#v", item)
+		}
+		name, _ := tool["name"].(string)
+		byName[name] = tool
+	}
+
+	assertToolAnnotation(t, byName, "agent_api_list_models", "readOnlyHint", true)
+	assertToolAnnotation(t, byName, "agent_api_create_response", "destructiveHint", false)
+	assertToolAnnotation(t, byName, "agent_api_write_volume_file", "destructiveHint", true)
+	assertToolAnnotation(t, byName, "agent_api_accept_skill_dev", "destructiveHint", true)
 }
 
 func newTestMCPServer(t *testing.T, agentAPIBaseURL string, apiKey string) *httptest.Server {
@@ -170,15 +209,15 @@ func newTestMCPServer(t *testing.T, agentAPIBaseURL string, apiKey string) *http
 
 func callMCPTool(t *testing.T, endpoint string, authorization string, name string, arguments map[string]any) map[string]any {
 	t.Helper()
-	body := map[string]any{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "tools/call",
-		"params": map[string]any{
-			"name":      name,
-			"arguments": arguments,
-		},
-	}
+	return callMCPRequest(t, endpoint, authorization, "tools/call", map[string]any{
+		"name":      name,
+		"arguments": arguments,
+	})
+}
+
+func callMCPRequest(t *testing.T, endpoint string, authorization string, method string, params map[string]any) map[string]any {
+	t.Helper()
+	body := map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		t.Fatalf("marshal MCP request: %v", err)
@@ -215,6 +254,21 @@ func callMCPTool(t *testing.T, endpoint string, authorization string, name strin
 		t.Fatalf("MCP response missing result: %#v", payload)
 	}
 	return result
+}
+
+func assertToolAnnotation(t *testing.T, tools map[string]map[string]any, name string, key string, want bool) {
+	t.Helper()
+	tool, ok := tools[name]
+	if !ok {
+		t.Fatalf("tool %q not found", name)
+	}
+	annotations, ok := tool["annotations"].(map[string]any)
+	if !ok {
+		t.Fatalf("tool %q missing annotations: %#v", name, tool)
+	}
+	if got := annotations[key]; got != want {
+		t.Fatalf("tool %q annotation %s = %#v, want %#v", name, key, got, want)
+	}
 }
 
 func toolText(t *testing.T, result map[string]any) string {

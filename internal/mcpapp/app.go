@@ -1,7 +1,6 @@
 package mcpapp
 
 import (
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -79,12 +78,24 @@ func boolPtr(value bool) *bool {
 	return &value
 }
 
-func convertJSON[T any](value any) (T, error) {
-	var out T
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return out, err
+func readOnlyTool(openWorld bool) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		ReadOnlyHint:  true,
+		OpenWorldHint: &openWorld,
 	}
-	err = json.Unmarshal(raw, &out)
-	return out, err
+}
+
+func mutatingTool(destructive bool, openWorld bool) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		DestructiveHint: &destructive,
+		OpenWorldHint:   &openWorld,
+	}
+}
+
+func destructiveTool(openWorld bool) *mcp.ToolAnnotations {
+	destructive := true
+	return &mcp.ToolAnnotations{
+		DestructiveHint: &destructive,
+		OpenWorldHint:   &openWorld,
+	}
 }

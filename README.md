@@ -51,6 +51,7 @@ Endpoints:
 - Skills: list, retrieve, discover, focus, read/write files, diff, and promote
   dev branches.
 
-The current implementation is an early Go skeleton for the hosted service. The
-tool/resource surface is intentionally broad but still thin over Agent API HTTP;
-the next step is to harden auth, observability, schema coverage, and deployment.
+The current implementation is a hosted Go foundation backed by the official
+Agent API Go SDK. The tool/resource surface is intentionally broad and now
+includes initial MCP safety annotations; the next step is to keep hardening
+error handling, observability, schema coverage, and deployment packaging.
