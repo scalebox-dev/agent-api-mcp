@@ -31,7 +31,7 @@ func TestLoadDefaults(t *testing.T) {
 
 func TestLoadExplicitValues(t *testing.T) {
 	cfg := Load([]string{
-		"AGENT_API_BASE_URL=http://localhost:18000/",
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=http://localhost:18000/",
 		"AGENT_API_MCP_ADDR=:9090",
 		"AGENT_API_MCP_PATH=mcp",
 		"AGENT_API_MCP_PUBLIC_BASE_URL=https://mcp.example.test/",
@@ -59,7 +59,7 @@ func TestLoadDotEnv(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	if err := os.WriteFile(path, []byte(`
 # local development settings
-AGENT_API_BASE_URL=http://localhost:18000/
+AGENT_API_MCP_UPSTREAM_BASE_URL=http://localhost:18000/
 AGENT_API_MCP_ADDR=:9090
 AGENT_API_MCP_PATH=mcp
 AGENT_API_MCP_HTTP_TIMEOUT_MS=1234
@@ -93,18 +93,5 @@ func TestLoadDotEnvProcessEnvWins(t *testing.T) {
 	cfg := LoadDotEnv([]string{"AGENT_API_MCP_ADDR=:8088"}, path)
 	if cfg.ListenAddr != ":8088" {
 		t.Fatalf("ListenAddr = %q, want process env override", cfg.ListenAddr)
-	}
-}
-
-func TestLoadAcceptsLegacyPlatformEnvNames(t *testing.T) {
-	cfg := Load([]string{
-		"AGENT_API_AUTHORIZATION_SERVER_URL=https://api.legacy.test",
-		"AGENT_API_HTTP_TIMEOUT_MS=4321",
-	})
-	if cfg.AuthorizationServerURL != "https://api.legacy.test" {
-		t.Fatalf("AuthorizationServerURL = %q", cfg.AuthorizationServerURL)
-	}
-	if cfg.HTTPTimeout != 4321*time.Millisecond {
-		t.Fatalf("HTTPTimeout = %v", cfg.HTTPTimeout)
 	}
 }

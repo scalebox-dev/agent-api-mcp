@@ -13,7 +13,7 @@ import (
 
 func TestHealthAndMCPInitialize(t *testing.T) {
 	cfg := config.Load([]string{
-		"AGENT_API_BASE_URL=http://agent-api.local",
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=http://agent-api.local",
 		"AGENT_API_MCP_PATH=/mcp",
 	})
 	server, err := NewServer(cfg, slog.Default())
@@ -64,7 +64,7 @@ func TestHealthAndMCPInitialize(t *testing.T) {
 
 func TestUnauthorizedMCPAdvertisesProtectedResourceMetadata(t *testing.T) {
 	cfg := config.Load([]string{
-		"AGENT_API_BASE_URL=http://agent-api.local",
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=http://agent-api.local",
 		"AGENT_API_MCP_AUTHORIZATION_SERVER_URL=https://api.example.test",
 		"AGENT_API_MCP_PUBLIC_BASE_URL=https://mcp.example.test",
 		"AGENT_API_MCP_PATH=/mcp",
@@ -99,7 +99,7 @@ func TestUnauthorizedMCPAdvertisesProtectedResourceMetadata(t *testing.T) {
 
 func TestProtectedResourceMetadata(t *testing.T) {
 	cfg := config.Load([]string{
-		"AGENT_API_BASE_URL=http://agent-api.local",
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=http://agent-api.local",
 		"AGENT_API_MCP_AUTHORIZATION_SERVER_URL=https://api.example.test",
 		"AGENT_API_MCP_PUBLIC_BASE_URL=https://mcp.example.test",
 		"AGENT_API_MCP_PATH=/mcp",
@@ -138,7 +138,7 @@ func TestProtectedResourceMetadata(t *testing.T) {
 
 func TestProtectedResourceMetadataCanUseForwardedHost(t *testing.T) {
 	cfg := config.Load([]string{
-		"AGENT_API_BASE_URL=http://agent-api.local",
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=http://agent-api.local",
 		"AGENT_API_MCP_PATH=/mcp",
 	})
 	server, err := NewServer(cfg, slog.Default())

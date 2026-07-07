@@ -260,7 +260,7 @@ func TestMCPToolFormatsAgentAPIErrors(t *testing.T) {
 func newTestMCPServer(t *testing.T, agentAPIBaseURL string) *httptest.Server {
 	t.Helper()
 	cfg := config.Load([]string{
-		"AGENT_API_BASE_URL=" + agentAPIBaseURL,
+		"AGENT_API_MCP_UPSTREAM_BASE_URL=" + agentAPIBaseURL,
 		"AGENT_API_MCP_PATH=/mcp",
 	})
 	server, err := NewServer(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))

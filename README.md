@@ -39,7 +39,7 @@ Process environment values override `.env` values, so hosted deployments should
 inject real environment variables rather than mounting a `.env` file.
 
 ```bash
-AGENT_API_BASE_URL=https://api.agentsway.dev \
+AGENT_API_MCP_UPSTREAM_BASE_URL=https://api.agentsway.dev \
 AGENT_API_MCP_ADDR=:8080 \
 go run ./cmd/agent-api-mcp
 ```
@@ -57,9 +57,11 @@ Endpoints:
 
 The supported service environment variables are tracked in `.env.example`.
 
-- `AGENT_API_BASE_URL` - Agent API upstream base URL.
+- `AGENT_API_MCP_UPSTREAM_BASE_URL` - Agent API upstream base URL used by
+  the MCP server. For managed remote MCP deployments this is normally the
+  public Agent API base URL.
 - `AGENT_API_MCP_AUTHORIZATION_SERVER_URL` - public Agent API/auth origin
-  advertised to MCP clients. Defaults to `AGENT_API_BASE_URL`.
+  advertised to MCP clients. Defaults to `AGENT_API_MCP_UPSTREAM_BASE_URL`.
 - `AGENT_API_MCP_PUBLIC_BASE_URL` - public MCP origin advertised in metadata.
   Leave empty for local development to derive it from `Host`/`X-Forwarded-*`
   request headers.

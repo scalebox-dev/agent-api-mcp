@@ -49,13 +49,14 @@ func LoadDotEnv(environ []string, paths ...string) Config {
 }
 
 func load(env map[string]string) Config {
-	agentAPIBaseURL := cleanBaseURL(firstNonEmpty(env["AGENT_API_BASE_URL"], defaultAgentAPIBaseURL))
+	agentAPIBaseURL := cleanBaseURL(firstNonEmpty(
+		env["AGENT_API_MCP_UPSTREAM_BASE_URL"],
+		defaultAgentAPIBaseURL,
+	))
 	return Config{
 		AgentAPIBaseURL: agentAPIBaseURL,
 		AuthorizationServerURL: cleanBaseURL(firstNonEmpty(
 			env["AGENT_API_MCP_AUTHORIZATION_SERVER_URL"],
-			env["AGENT_API_AUTHORIZATION_SERVER_URL"],
-			env["AGENT_API_PUBLIC_BASE_URL"],
 			agentAPIBaseURL,
 		)),
 		MCPPublicBaseURL: cleanOptionalBaseURL(env["AGENT_API_MCP_PUBLIC_BASE_URL"]),
@@ -63,7 +64,6 @@ func load(env map[string]string) Config {
 		MCPPath:          cleanPath(firstNonEmpty(env["AGENT_API_MCP_PATH"], defaultMCPPath)),
 		HTTPTimeout: durationMillis(firstNonEmpty(
 			env["AGENT_API_MCP_HTTP_TIMEOUT_MS"],
-			env["AGENT_API_HTTP_TIMEOUT_MS"],
 		), defaultHTTPTimeout),
 		SessionTimeout: durationMillis(env["AGENT_API_MCP_SESSION_TIMEOUT_MS"], defaultSessionTimeout),
 	}
