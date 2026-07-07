@@ -1,36 +1,45 @@
 # Agent API MCP Server
 
-First-class Model Context Protocol server for Agent API.
+Hosted Model Context Protocol server for Agent API.
 
-This server exposes Agent API as MCP tools, resources, and prompts so MCP hosts
-can create and inspect agent runs, work with durable volumes, search memory, and
-use platform catalogs without speaking Agent API directly.
+This service exposes Agent API as MCP tools, resources, and prompts so MCP
+clients can create and inspect agent runs, work with durable volumes, search
+memory, and use platform catalogs without speaking Agent API directly.
 
-## Status
+## Runtime
 
-Early implementation scaffold. The initial transport is stdio for local MCP
-hosts. Remote Streamable HTTP support is planned as the service surface settles.
+The production runtime is Go. The default transport is hosted Streamable HTTP,
+intended to run next to or behind Agent API's public gateway.
 
-## Install
+```text
+MCP client -> agent-api-mcp -> Agent API HTTP gateway -> Agent API services
+```
+
+Incoming `Authorization: Bearer ...` headers are forwarded to Agent API. For
+local development or service-key deployments, `AGENT_API_KEY` can be set as a
+fallback credential.
+
+## Build
 
 ```bash
-npm install
-npm run build
+go build ./cmd/agent-api-mcp
+go test ./...
 ```
 
 ## Run
 
 ```bash
-AGENT_API_KEY=sk-... \
 AGENT_API_BASE_URL=https://api.agentsway.dev \
-npm run dev
+AGENT_API_MCP_ADDR=:8080 \
+go run ./cmd/agent-api-mcp
 ```
 
-MCP host command:
+Endpoints:
 
-```bash
-node /path/to/agent-api-mcp/dist/index.js
-```
+- `POST /mcp` - MCP Streamable HTTP endpoint
+- `GET /mcp` - MCP Streamable HTTP event stream endpoint when applicable
+- `GET /healthz` - liveness
+- `GET /readyz` - readiness/config sanity
 
 ## Initial Capability Map
 
@@ -42,5 +51,6 @@ node /path/to/agent-api-mcp/dist/index.js
 - Skills: list, retrieve, discover, focus, read/write files, diff, and promote
   dev branches.
 
-Credentials are read from environment variables and are never exposed through MCP
-tool results.
+The current implementation is an early Go skeleton for the hosted service. The
+tool/resource surface is intentionally broad but still thin over Agent API HTTP;
+the next step is to harden auth, observability, schema coverage, and deployment.
