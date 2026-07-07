@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	agentapi "github.com/scalebox-dev/agent-api-sdk/go/agentapi"
 )
 
 type searchMemoriesInput struct {
@@ -17,11 +18,11 @@ type searchMemoriesInput struct {
 
 func (a *App) registerMemoryTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_search_memories", Description: "Search Agent API long-term memory with thread or workspace scope."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in searchMemoriesInput) (*mcp.CallToolResult, map[string]any, error) {
+		func(ctx context.Context, _ *mcp.CallToolRequest, in searchMemoriesInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.Query, "query"); err != nil {
 				return nil, nil, err
 			}
-			out, err := a.post(ctx, "/v1/memories/search", in)
+			out, err := a.Client.Memories.Search(ctx, agentapi.MemorySearchParams(in))
 			return JSONText(out), out, err
 		})
 }

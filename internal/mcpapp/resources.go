@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/scalebox-dev/agent-api-mcp/internal/agentapi"
+	agentapi "github.com/scalebox-dev/agent-api-sdk/go/agentapi"
 )
 
 func (a *App) registerResources(server *mcp.Server) {
@@ -23,19 +23,19 @@ func (a *App) registerResources(server *mcp.Server) {
 func (a *App) readStaticResource(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	switch req.Params.URI {
 	case "agentapi://models":
-		out, err := a.get(ctx, "/v1/models", nil)
+		out, err := a.Client.Models.List(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return ResourceJSON(req.Params.URI, out)
 	case "agentapi://presets":
-		out, err := a.get(ctx, "/v1/presets", nil)
+		out, err := a.Client.Presets.List(ctx)
 		if err != nil {
 			return nil, err
 		}
 		return ResourceJSON(req.Params.URI, out)
 	case "agentapi://tools":
-		out, err := a.get(ctx, "/v1/tools", nil)
+		out, err := a.Client.Tools.List(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -58,18 +58,18 @@ func (a *App) readDynamicResource(ctx context.Context, req *mcp.ReadResourceRequ
 		return nil, mcp.ResourceNotFoundError(req.Params.URI)
 	}
 
-	var out map[string]any
+	var out any
 	switch {
 	case len(parts) == 2 && parts[0] == "responses":
-		out, err = a.get(ctx, agentapi.Join("v1", "responses", agentapi.Segment(parts[1])), nil)
+		out, err = a.Client.Responses.Retrieve(ctx, parts[1])
 	case len(parts) == 3 && parts[0] == "responses" && parts[2] == "events":
-		out, err = a.get(ctx, agentapi.Join("v1", "responses", agentapi.Segment(parts[1]), "events"), nil)
+		out, err = a.Client.Responses.ListEvents(ctx, parts[1], agentapi.ListEventsParams{})
 	case len(parts) == 3 && parts[0] == "responses" && parts[2] == "children":
-		out, err = a.get(ctx, agentapi.Join("v1", "responses", agentapi.Segment(parts[1]), "children"), nil)
+		out, err = a.Client.Responses.ListChildren(ctx, parts[1])
 	case len(parts) >= 4 && parts[0] == "volumes" && parts[2] == "files":
-		out, err = a.get(ctx, agentapi.Join("v1", "volumes", agentapi.Segment(parts[1]), "files", agentapi.Segment(strings.Join(parts[3:], "/"))), nil)
+		out, err = a.Client.Volumes.ReadFile(ctx, parts[1], strings.Join(parts[3:], "/"), agentapi.ReadFileParams{})
 	case len(parts) >= 4 && parts[0] == "skills" && parts[2] == "files":
-		out, err = a.get(ctx, agentapi.Join("v1", "skills", agentapi.Segment(parts[1]), "files", agentapi.Segment(strings.Join(parts[3:], "/"))), nil)
+		out, err = a.Client.Skills.ReadFile(ctx, parts[1], strings.Join(parts[3:], "/"), agentapi.ReadSkillFileParams{})
 	default:
 		return nil, mcp.ResourceNotFoundError(req.Params.URI)
 	}

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/scalebox-dev/agent-api-mcp/internal/agentapi"
+	agentapi "github.com/scalebox-dev/agent-api-sdk/go/agentapi"
 )
 
 type createResponseInput struct {
@@ -21,7 +21,7 @@ type createResponseInput struct {
 	MaxSteps           int            `json:"max_steps,omitempty"`
 	PlanModePreference string         `json:"plan_mode_preference,omitempty"`
 	SubAgentPreference string         `json:"sub_agent_preference,omitempty"`
-	Memory             map[string]any `json:"memory,omitempty"`
+	Memory             map[string]any `json:"memory,omitempty" jsonschema:"Memory options: enabled, read, write, tenant_search."`
 	Metadata           map[string]any `json:"metadata,omitempty"`
 	PreferredSites     []string       `json:"preferred_sites,omitempty"`
 }
@@ -50,86 +50,93 @@ type listResponseEventsInput struct {
 
 func (a *App) registerResponseTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_create_response", Description: "Create a non-streaming Agent API response."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in createResponseInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.post(ctx, "/v1/responses", map[string]any{
-				"input":                in.Input,
-				"instructions":         in.Instructions,
-				"preset":               in.Preset,
-				"model":                in.Model,
-				"models":               in.Models,
-				"model_routing":        in.ModelRouting,
-				"routing_strategy":     in.RoutingStrategy,
-				"previous_response_id": in.PreviousResponseID,
-				"volume_id":            in.VolumeID,
-				"max_output_tokens":    in.MaxOutputTokens,
-				"max_steps":            in.MaxSteps,
-				"plan_mode_preference": in.PlanModePreference,
-				"sub_agent_preference": in.SubAgentPreference,
-				"memory":               in.Memory,
-				"metadata":             in.Metadata,
-				"preferred_sites":      in.PreferredSites,
-				"stream":               false,
-			})
+		func(ctx context.Context, _ *mcp.CallToolRequest, in createResponseInput) (*mcp.CallToolResult, any, error) {
+			params := agentapi.ResponseCreateParams{
+				Input:              in.Input,
+				Instructions:       in.Instructions,
+				Preset:             in.Preset,
+				Model:              in.Model,
+				Models:             in.Models,
+				ModelRouting:       in.ModelRouting,
+				RoutingStrategy:    in.RoutingStrategy,
+				PreviousResponseID: in.PreviousResponseID,
+				VolumeID:           in.VolumeID,
+				MaxOutputTokens:    in.MaxOutputTokens,
+				MaxSteps:           in.MaxSteps,
+				PlanModePreference: in.PlanModePreference,
+				SubAgentPreference: in.SubAgentPreference,
+				Metadata:           agentapi.Metadata(in.Metadata),
+				PreferredSites:     in.PreferredSites,
+			}
+			if len(in.Memory) > 0 {
+				memory, err := convertJSON[agentapi.MemoryOptions](in.Memory)
+				if err != nil {
+					return nil, nil, err
+				}
+				params.Memory = &memory
+			}
+			out, err := a.Client.Responses.Create(ctx, params)
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_responses", Description: "List stored responses visible to the credential."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in listResponsesInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.get(ctx, "/v1/responses", agentapi.Query(map[string]any{
-				"limit":             in.Limit,
-				"page_token":        in.PageToken,
-				"safety_identifier": in.SafetyIdentifier,
-				"user_id":           in.UserID,
-			}))
+		func(ctx context.Context, _ *mcp.CallToolRequest, in listResponsesInput) (*mcp.CallToolResult, any, error) {
+			out, err := a.Client.Responses.List(ctx, agentapi.ListResponsesParams{
+				Limit:            in.Limit,
+				PageToken:        in.PageToken,
+				SafetyIdentifier: in.SafetyIdentifier,
+				UserID:           in.UserID,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_get_response", Description: "Retrieve a persisted Agent API response by id."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in getResponseInput) (*mcp.CallToolResult, map[string]any, error) {
+		func(ctx context.Context, _ *mcp.CallToolRequest, in getResponseInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.ResponseID, "response_id"); err != nil {
 				return nil, nil, err
 			}
-			endpoint := agentapi.Join("v1", "responses", agentapi.Segment(in.ResponseID))
-			out, err := a.get(ctx, endpoint, agentapi.Query(map[string]any{"safety_identifier": in.SafetyIdentifier}))
+			out, err := a.Client.Responses.RetrieveWithParams(ctx, in.ResponseID, agentapi.RetrieveResponseParams{
+				SafetyIdentifier: in.SafetyIdentifier,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_cancel_response", Description: "Best-effort cancellation for an in-flight response."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in responseIDInput) (*mcp.CallToolResult, map[string]any, error) {
+		func(ctx context.Context, _ *mcp.CallToolRequest, in responseIDInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.ResponseID, "response_id"); err != nil {
 				return nil, nil, err
 			}
-			out, err := a.post(ctx, agentapi.Join("v1", "responses", agentapi.Segment(in.ResponseID), "cancel"), map[string]any{})
+			out, err := a.Client.Responses.Cancel(ctx, in.ResponseID)
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_response_events", Description: "List response audit/timeline events."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in listResponseEventsInput) (*mcp.CallToolResult, map[string]any, error) {
+		func(ctx context.Context, _ *mcp.CallToolRequest, in listResponseEventsInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.ResponseID, "response_id"); err != nil {
 				return nil, nil, err
 			}
-			out, err := a.get(ctx, agentapi.Join("v1", "responses", agentapi.Segment(in.ResponseID), "events"), agentapi.Query(map[string]any{
-				"after_sequence": in.AfterSequence,
-				"view":           in.View,
-			}))
+			out, err := a.Client.Responses.ListEvents(ctx, in.ResponseID, agentapi.ListEventsParams{
+				AfterSequence: int64(in.AfterSequence),
+				View:          in.View,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_child_responses", Description: "List delegated sub-agent runs for a parent response."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in responseIDInput) (*mcp.CallToolResult, map[string]any, error) {
+		func(ctx context.Context, _ *mcp.CallToolRequest, in responseIDInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.ResponseID, "response_id"); err != nil {
 				return nil, nil, err
 			}
-			out, err := a.get(ctx, agentapi.Join("v1", "responses", agentapi.Segment(in.ResponseID), "children"), nil)
+			out, err := a.Client.Responses.ListChildren(ctx, in.ResponseID)
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_get_response_volume", Description: "Resolve the durable agent volume associated with a response."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in responseIDInput) (*mcp.CallToolResult, map[string]any, error) {
+		func(ctx context.Context, _ *mcp.CallToolRequest, in responseIDInput) (*mcp.CallToolResult, any, error) {
 			if err := require(in.ResponseID, "response_id"); err != nil {
 				return nil, nil, err
 			}
-			out, err := a.get(ctx, agentapi.Join("v1", "responses", agentapi.Segment(in.ResponseID), "volume"), nil)
+			out, err := a.Client.Responses.RetrieveVolume(ctx, in.ResponseID)
 			return JSONText(out), out, err
 		})
 }

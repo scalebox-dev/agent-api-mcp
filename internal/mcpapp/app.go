@@ -1,15 +1,15 @@
 package mcpapp
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/scalebox-dev/agent-api-mcp/internal/agentapi"
 	"github.com/scalebox-dev/agent-api-mcp/internal/config"
+	agentapi "github.com/scalebox-dev/agent-api-sdk/go/agentapi"
 )
 
 type App struct {
@@ -19,11 +19,19 @@ type App struct {
 }
 
 func NewServer(cfg config.Config, logger *slog.Logger, requestAuth string) *mcp.Server {
-	auth := agentapi.PreferRequestAuth(requestAuth, cfg.AgentAPIKey)
+	defaultHeaders := map[string]string{}
+	if auth := strings.TrimSpace(requestAuth); auth != "" {
+		defaultHeaders["Authorization"] = auth
+	}
 	app := &App{
 		Config: cfg,
 		Logger: logger,
-		Client: agentapi.New(cfg.AgentAPIBaseURL, auth, cfg.HTTPTimeout),
+		Client: agentapi.NewClient(&agentapi.ClientOptions{
+			APIKey:         cfg.AgentAPIKey,
+			BaseURL:        cfg.AgentAPIBaseURL,
+			Timeout:        cfg.HTTPTimeout,
+			DefaultHeaders: defaultHeaders,
+		}),
 	}
 	server := mcp.NewServer(&mcp.Implementation{
 		Name:    "agent-api-mcp",
@@ -57,17 +65,26 @@ func AuthHeaderFromRequest(req *http.Request) string {
 	return auth
 }
 
-func (a *App) get(ctx context.Context, endpoint string, query map[string]string) (map[string]any, error) {
-	return a.Client.Get(ctx, endpoint, query)
-}
-
-func (a *App) post(ctx context.Context, endpoint string, body any) (map[string]any, error) {
-	return a.Client.Post(ctx, endpoint, body)
-}
-
 func require(value string, name string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s is required", name)
 	}
 	return nil
+}
+
+func boolPtr(value bool) *bool {
+	if !value {
+		return nil
+	}
+	return &value
+}
+
+func convertJSON[T any](value any) (T, error) {
+	var out T
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return out, err
+	}
+	err = json.Unmarshal(raw, &out)
+	return out, err
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/scalebox-dev/agent-api-mcp/internal/agentapi"
+	agentapi "github.com/scalebox-dev/agent-api-sdk/go/agentapi"
 )
 
 type listSkillsInput struct {
@@ -19,16 +19,20 @@ type skillIDInput struct {
 }
 
 type discoverSkillsInput struct {
-	Query      string           `json:"query,omitempty"`
-	Skills     []map[string]any `json:"skills,omitempty"`
-	MaxResults int              `json:"max_results,omitempty"`
+	Query              string                          `json:"query,omitempty"`
+	Branch             string                          `json:"branch,omitempty"`
+	IncludeDev         bool                            `json:"include_dev,omitempty"`
+	Limit              int                             `json:"limit,omitempty"`
+	PreviousResponseID string                          `json:"previous_response_id,omitempty"`
+	TenantSearch       bool                            `json:"tenant_search,omitempty"`
+	LocalSkills        []agentapi.LocalSkillDescriptor `json:"local_skills,omitempty"`
 }
 
 type focusSkillsInput struct {
-	Skills           []map[string]any `json:"skills"`
-	FallbackToMain   bool             `json:"fallback_to_main,omitempty"`
-	MaxManifestChars int              `json:"max_manifest_chars,omitempty"`
-	MaxFileChars     int              `json:"max_file_chars,omitempty"`
+	Skills           []agentapi.SkillFocusItem `json:"skills"`
+	FallbackToMain   bool                      `json:"fallback_to_main,omitempty"`
+	MaxManifestChars int                       `json:"max_manifest_chars,omitempty"`
+	MaxFileChars     int                       `json:"max_file_chars,omitempty"`
 }
 
 type skillFileInput struct {
@@ -37,6 +41,8 @@ type skillFileInput struct {
 	Branch         string `json:"branch,omitempty"`
 	FallbackToMain bool   `json:"fallback_to_main,omitempty"`
 	MaxBytes       int    `json:"max_bytes,omitempty"`
+	Limit          int    `json:"limit,omitempty"`
+	PageToken      string `json:"page_token,omitempty"`
 }
 
 type writeSkillFileInput struct {
@@ -60,62 +66,112 @@ type acceptSkillInput struct {
 
 func (a *App) registerSkillTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_skills", Description: "List workspace skills."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in listSkillsInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.get(ctx, "/v1/skills", agentapi.Query(map[string]any{"limit": in.Limit, "page_token": in.PageToken, "archived": in.Archived, "user_id": in.UserID}))
+		func(ctx context.Context, _ *mcp.CallToolRequest, in listSkillsInput) (*mcp.CallToolResult, any, error) {
+			out, err := a.Client.Skills.List(ctx, agentapi.ListSkillsParams{
+				IncludeArchived: in.Archived,
+				Limit:           in.Limit,
+				PageToken:       in.PageToken,
+				UserID:          in.UserID,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_get_skill", Description: "Retrieve skill metadata."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in skillIDInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.get(ctx, agentapi.Join("v1", "skills", agentapi.Segment(in.SkillID)), nil)
+		func(ctx context.Context, _ *mcp.CallToolRequest, in skillIDInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.SkillID, "skill_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Skills.Retrieve(ctx, in.SkillID)
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_discover_skills", Description: "Discover relevant skills for a task or query."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in discoverSkillsInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.post(ctx, "/v1/skills/discover", in)
+		func(ctx context.Context, _ *mcp.CallToolRequest, in discoverSkillsInput) (*mcp.CallToolResult, any, error) {
+			out, err := a.Client.Skills.Discover(ctx, agentapi.DiscoverSkillsParams{
+				Query:              in.Query,
+				Branch:             in.Branch,
+				IncludeDev:         in.IncludeDev,
+				Limit:              in.Limit,
+				PreviousResponseID: in.PreviousResponseID,
+				TenantSearch:       in.TenantSearch,
+				LocalSkills:        in.LocalSkills,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_focus_skills", Description: "Load selected skill manifests and files for model context."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in focusSkillsInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.post(ctx, "/v1/skills/focus", in)
+		func(ctx context.Context, _ *mcp.CallToolRequest, in focusSkillsInput) (*mcp.CallToolResult, any, error) {
+			out, err := a.Client.Skills.Focus(ctx, agentapi.FocusSkillParams{
+				Skills:           in.Skills,
+				FallbackToMain:   boolPtr(in.FallbackToMain),
+				MaxManifestChars: in.MaxManifestChars,
+				MaxFileChars:     in.MaxFileChars,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_list_skill_files", Description: "List files in a skill branch."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in skillFileInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.get(ctx, agentapi.Join("v1", "skills", agentapi.Segment(in.SkillID), "files"), agentapi.Query(map[string]any{
-				"path": in.Path, "branch": in.Branch, "fallback_to_main": in.FallbackToMain,
-			}))
+		func(ctx context.Context, _ *mcp.CallToolRequest, in skillFileInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.SkillID, "skill_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Skills.ListFiles(ctx, in.SkillID, agentapi.ListSkillFilesParams{
+				Path:           in.Path,
+				Branch:         in.Branch,
+				FallbackToMain: boolPtr(in.FallbackToMain),
+				Limit:          in.Limit,
+				PageToken:      in.PageToken,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_read_skill_file", Description: "Read a file from a skill branch."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in skillFileInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.get(ctx, agentapi.Join("v1", "skills", agentapi.Segment(in.SkillID), "files", agentapi.Segment(in.Path)), agentapi.Query(map[string]any{
-				"branch": in.Branch, "fallback_to_main": in.FallbackToMain, "max_bytes": in.MaxBytes,
-			}))
+		func(ctx context.Context, _ *mcp.CallToolRequest, in skillFileInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.SkillID, "skill_id"); err != nil {
+				return nil, nil, err
+			}
+			if err := require(in.Path, "path"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Skills.ReadFile(ctx, in.SkillID, in.Path, agentapi.ReadSkillFileParams{
+				Branch:         in.Branch,
+				FallbackToMain: boolPtr(in.FallbackToMain),
+				MaxBytes:       in.MaxBytes,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_write_skill_file", Description: "Write text content to a skill branch file."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in writeSkillFileInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.Client.PutRaw(ctx, agentapi.Join("v1", "skills", agentapi.Segment(in.SkillID), "files", agentapi.Segment(in.Path))+"?branch="+agentapi.Segment(in.Branch), in.Content)
+		func(ctx context.Context, _ *mcp.CallToolRequest, in writeSkillFileInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.SkillID, "skill_id"); err != nil {
+				return nil, nil, err
+			}
+			if err := require(in.Path, "path"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Skills.WriteFile(ctx, in.SkillID, in.Path, []byte(in.Content), in.Branch)
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_diff_skill", Description: "Diff skill main and dev branches."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in diffSkillInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.get(ctx, agentapi.Join("v1", "skills", agentapi.Segment(in.SkillID), "diff"), agentapi.Query(map[string]any{
-				"path": in.Path, "max_file_chars": in.MaxFileChars, "include_unchanged": in.IncludeUnchanged,
-			}))
+		func(ctx context.Context, _ *mcp.CallToolRequest, in diffSkillInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.SkillID, "skill_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Skills.Diff(ctx, in.SkillID, agentapi.SkillBranchDiffParams{
+				Path:             in.Path,
+				MaxFileChars:     in.MaxFileChars,
+				IncludeUnchanged: in.IncludeUnchanged,
+			})
 			return JSONText(out), out, err
 		})
 
 	mcp.AddTool(server, &mcp.Tool{Name: "agent_api_accept_skill_dev", Description: "Promote a skill dev branch to main."},
-		func(ctx context.Context, _ *mcp.CallToolRequest, in acceptSkillInput) (*mcp.CallToolResult, map[string]any, error) {
-			out, err := a.post(ctx, agentapi.Join("v1", "skills", agentapi.Segment(in.SkillID), "accept_dev")+"?strategy="+agentapi.Segment(in.Strategy), map[string]any{})
+		func(ctx context.Context, _ *mcp.CallToolRequest, in acceptSkillInput) (*mcp.CallToolResult, any, error) {
+			if err := require(in.SkillID, "skill_id"); err != nil {
+				return nil, nil, err
+			}
+			out, err := a.Client.Skills.AcceptDev(ctx, in.SkillID, in.Strategy)
 			return JSONText(out), out, err
 		})
 }

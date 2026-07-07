@@ -2,7 +2,10 @@ module github.com/scalebox-dev/agent-api-mcp
 
 go 1.25.0
 
-require github.com/modelcontextprotocol/go-sdk v1.6.1
+require (
+	github.com/modelcontextprotocol/go-sdk v1.6.1
+	github.com/scalebox-dev/agent-api-sdk/go v1.4.8
+)
 
 require (
 	github.com/google/jsonschema-go v0.4.3 // indirect
